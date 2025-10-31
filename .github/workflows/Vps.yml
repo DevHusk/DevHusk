@@ -29,28 +29,30 @@ jobs:
       
       - name: ⬇️ Download Previous Data Artifact
         uses: actions/download-artifact@v4
+        # Allows the job to continue if the artifact doesn't exist (first run)
+        continue-on-error: true 
         with:
           name: tmate-vps-data
           # Download to a temporary location
           path: /tmp/data_artifact 
           
       - name: 🛠️ Restore Previous State
-        # Ensure the script is executable and run it
+        # Executes the restore script
         run: chmod +x .github/scripts/restore.sh && .github/scripts/restore.sh
       
-      # --- Tmate and Setup ---
+      # --- Tmate Session (5 hours 40 minutes runtime) ---
 
-      - name: 💻 Start Tmate VPS Session (Runs for ~5 hours 40 minutes)
+      - name: 💻 Start Tmate VPS Session
         uses: mxschmitt/action-tmate@v3
         with:
-          # Tmate session times out at 340 minutes (360 - 20 min buffer)
+          # Tmate session times out at 340 minutes, creating the 20-minute backup buffer
           timeout-minutes: 340 
           limit-access-to-actor: true
 
       # --- Data Persistence: BACKUP (Runs in the 20-minute buffer) ---
       
       - name: ⬆️ Backup Current State
-        # Ensure the script is executable and run it
+        # Executes the backup script
         run: chmod +x .github/scripts/backup.sh && .github/scripts/backup.sh
           
       - name: 📦 Upload Current Data Artifact
