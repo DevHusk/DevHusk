@@ -1,0 +1,62 @@
+name: Persistent Tmate VPS Session
+
+on:
+  # Manual trigger for initial start
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Start Tmate Session (Use for initial run)'
+        required: false
+        default: true
+  
+  # CRON schedule: Runs every 6 hours (360 minutes) to keep the "VPS" running
+  schedule:
+    - cron: '0 */6 * * *' 
+    
+jobs:
+  tmate_session:
+    runs-on: ubuntu-latest
+    
+    # MAXIMUM JOB RUNTIME: 360 minutes (6 hours)
+    timeout-minutes: 360 
+    
+    steps:
+      - name: ⚙️ Checkout Repository
+        uses: actions/checkout@v4
+        
+      # --- Data Persistence: RESTORE ---
+      
+      - name: ⬇️ Download Previous Data Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tmate-vps-data
+          # Download to a temporary location
+          path: /tmp/data_artifact 
+          
+      - name: 🛠️ Restore Previous State
+        # Ensure the script is executable and run it
+        run: chmod +x .github/scripts/restore.sh && .github/scripts/restore.sh
+      
+      # --- Tmate and Setup ---
+
+      - name: 💻 Start Tmate VPS Session (Runs for ~5 hours 40 minutes)
+        uses: mxschmitt/action-tmate@v3
+        with:
+          # Tmate session times out at 340 minutes (360 - 20 min buffer)
+          timeout-minutes: 340 
+          limit-access-to-actor: true
+
+      # --- Data Persistence: BACKUP (Runs in the 20-minute buffer) ---
+      
+      - name: ⬆️ Backup Current State
+        # Ensure the script is executable and run it
+        run: chmod +x .github/scripts/backup.sh && .github/scripts/backup.sh
+          
+      - name: 📦 Upload Current Data Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmate-vps-data # Must match the name in the download step
+          path: tmate-data-backup.tar.gz
+          retention-days: 1 # Keep the artifact for 1 day
+          
