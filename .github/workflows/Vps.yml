@@ -29,45 +29,36 @@ jobs:
       
       - name: ⬇️ Download Previous Data Artifact
         uses: actions/download-artifact@v4
+        # Allows the job to continue if the artifact doesn't exist (first run)
         continue-on-error: true 
         with:
           name: tmate-vps-data
+          # Download to a temporary location
           path: /tmp/data_artifact 
           
       - name: 🛠️ Restore Previous State
+        # Executes the restore script
         run: chmod +x .github/scripts/restore.sh && .github/scripts/restore.sh
       
-      # 🚀 START DETACHED TMATE SESSION 🚀
-      # This step will run quickly and print the connection string once.
-      - name: 💻 Start Tmate VPS Session (Detached Mode)
+      # --- Tmate Session (5 hours 40 minutes runtime) ---
+
+      - name: 💻 Start Tmate VPS Session
         uses: mxschmitt/action-tmate@v3
-        id: tmate_session # Added ID for reference
         with:
-          # Set detached to true so the workflow moves on immediately
-          detached: true 
-          # The entire job runs for 360 minutes, so this session can run for 5h 40m
+          # Tmate session times out at 340 minutes, creating the 20-minute backup buffer
           timeout-minutes: 340 
           limit-access-to-actor: true
 
-      # --- WAITING PERIOD ---
-      # This step waits until the 5 hours and 40 minutes have passed,
-      # ensuring the backup runs right before the 6-hour job timeout.
-      - name: ⏳ Wait for Session Duration (5 hours 40 minutes)
-        # We need to wait for the exact duration minus a small buffer for safety
-        run: sleep 5h 40m 
-        
-      # --- Data Persistence: BACKUP ---
-      # This step runs after the wait period (at the ~345 minute mark of the job)
+      # --- Data Persistence: BACKUP (Runs in the 20-minute buffer) ---
+      
       - name: ⬆️ Backup Current State
-        # Ensures the tmate session is properly ended before backup
-        run: tmate kill-session || true
         # Executes the backup script
         run: chmod +x .github/scripts/backup.sh && .github/scripts/backup.sh
           
       - name: 📦 Upload Current Data Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tmate-vps-data
+          name: tmate-vps-data # Must match the name in the download step
           path: tmate-data-backup.tar.gz
-          retention-days: 1
+          retention-days: 1 # Keep the artifact for 1 day
           
